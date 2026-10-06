@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 # Create your models here.
 
-class Board(models.Model):
+class Boards(models.Model):
     title = models.CharField(max_length=100)
     members = models.ManyToManyField(User, related_name='member_boards', blank=True) #übergreifend testen im Zusammenhang mit Tasks
     ticket_count = models.IntegerField(default=0)
@@ -15,7 +15,7 @@ class Board(models.Model):
         return self.title
 
 class Tasks(models.Model):
-    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='tasks')
+    board = models.ForeignKey(Boards, on_delete=models.CASCADE, related_name='tasks')
     title = models.CharField(max_length=100)
     description = models.TextField()
     class Status(models.TextChoices): #noch überlegen ob choices die beste Lösung bzw. Anforderung
