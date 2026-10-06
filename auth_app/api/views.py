@@ -8,6 +8,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework import status
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from rest_framework.permissions import IsAuthenticated
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -72,3 +73,10 @@ class RegistrationView(APIView):
             
         except Exception:
             return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        request.user.auth_token.delete()  # Token löschen
+        return Response({"detail": "Logout erfolgreich. Token wurde gelöscht."}, status=status.HTTP_200_OK)
