@@ -14,3 +14,26 @@ class BoardsSerializer(serializers.ModelSerializer):
     def get_member_count(self, obj):
         return obj.members.count()
 
+
+class UserSerializer(serializers.ModelSerializer):
+
+    fullname = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'fullname']
+
+    def get_fullname(self, obj):
+        return f'{obj.first_name} {obj.last_name}'.strip()
+    
+class TasksSerializer(serializers.ModelSerializer):
+
+    assignee = UserSerializer(read_only=True) #macht Probleme muss noch gelöst werden, da sonst das Feld nicht funktioniert
+    reviewer = UserSerializer(read_only=True)
+
+    comments_count = serializers.IntegerField(source='comments.count', read_only=True)
+
+    class Meta:
+        model = Tasks
+        fields = ['id', 'board', 'title', 'description', 'status', 'priority', 'assignee', 'reviewer', 'due_date', 'comments_count']
+
