@@ -22,9 +22,6 @@ class BoardsViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
-# class BoardDetailView(generics.RetrieveUpdateDestroyAPIView): #Retrieve für einzelnes Objekt
-#     pass
-
 class EmailCheck(APIView):
     pass
 

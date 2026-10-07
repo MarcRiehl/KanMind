@@ -11,8 +11,6 @@ comments_list = CommentsViewSet.as_view({'get': 'list', 'post': 'create'})
 comments_detail = CommentsViewSet.as_view({'get': 'retrieve', 'delete': 'destroy'})
 
 urlpatterns = [
-    # path('boards/', BoardsView.as_view()),
-    # path('boards/<int:pk>/', BoardDetailView.as_view(), name='board-detail'),
     path('tasks/assigned-to-me/', MemberAssignedTasks.as_view()),
     path('tasks/reviewing/', MemberReviewing.as_view()),
     path('tasks/<int:task_id>/comments/', comments_list, name='task-comments'),
