@@ -3,10 +3,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics
 from kanban_app.models import Boards, Tasks, Comments
-from .serializers import BoardsSerializer, TasksSerializer, TasksViewSerializer
+from .serializers import BoardsSerializer, BoardViewSerializer, BoardUpdateSerializer, TasksSerializer, TasksViewSerializer
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
-from .permissions import IsBoardOwnerOrTaskCreator
+from .permissions import IsBoardOwnerOrTaskCreator, IsBoardOwnerOrMember
 
 class BoardsViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete']
@@ -15,10 +15,37 @@ class BoardsViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
 
+    def get_serializer_class(self):
+        if self.action == 'retrieve': #id des Boards
+            return BoardViewSerializer
+
+        return BoardsSerializer
+
     def get_queryset(self):
         user = self.request.user
 
         return Boards.objects.filter(Q(owner=user) | Q(members=user)).distinct() #.distinct() Board kommt nur einmal zurück, siehe or Abfrage
+
+    def get_permissions(self):
+        permission_classes = [IsAuthenticated]
+
+        if self.action == 'partial_update':
+            permission_classes = [IsBoardOwnerOrMember]
+
+        return [permission() for permission in permission_classes]
+
+    
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        serializer = BoardsSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        response_serializer = BoardUpdateSerializer(instance)
+        return Response(response_serializer.data,status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -59,7 +86,6 @@ class TasksViewSet(viewsets.ModelViewSet):
         task = serializer.save(created_by=request.user)
         response_serializer = TasksViewSerializer(task)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
 
     def get_permissions(self):
         """
