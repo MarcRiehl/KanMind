@@ -39,6 +39,7 @@ class TasksViewSerializer(serializers.ModelSerializer):
 
 class TasksSerializer(serializers.ModelSerializer):
 
+
     class Meta:
         model = Tasks
         fields = ['id', 'board', 'title', 'description', 'status', 'priority', 'assignee', 'reviewer', 'due_date', 'created_by']
