@@ -50,8 +50,16 @@ class TasksViewSet(viewsets.ModelViewSet):
 
         return Tasks.objects.filter(Q(board__owner=user) | Q(board__members=user)).distinct()
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+    # def perform_create(self, serializer):
+    #     serializer.save(created_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        task = serializer.save(created_by=request.user)
+        response_serializer = TasksViewSerializer(task)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
 
     def get_permissions(self):
         """
