@@ -26,7 +26,7 @@ class UserSerializer(serializers.ModelSerializer):
     def get_fullname(self, obj):
         return f'{obj.first_name} {obj.last_name}'.strip()
     
-class TasksSerializer(serializers.ModelSerializer):
+class TasksViewSerializer(serializers.ModelSerializer):
 
     assignee = UserSerializer(read_only=True) #macht Probleme muss noch gelöst werden, da sonst das Feld nicht funktioniert
     reviewer = UserSerializer(read_only=True)
@@ -36,4 +36,12 @@ class TasksSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tasks
         fields = ['id', 'board', 'title', 'description', 'status', 'priority', 'assignee', 'reviewer', 'due_date', 'comments_count']
+
+class TasksSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Tasks
+        fields = ['id', 'board', 'title', 'description', 'status', 'priority', 'assignee', 'reviewer', 'due_date', 'created_by']
+
+        read_only_fields = ['id', 'created_by']
 
