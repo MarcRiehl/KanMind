@@ -36,7 +36,6 @@ class BoardsViewSet(viewsets.ModelViewSet):
             permission_classes = [IsBoardOwnerOrMember]
 
         return [permission() for permission in permission_classes]
-
     
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -52,9 +51,6 @@ class BoardsViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
-
-class MemberAssignedTasks(generics.ListCreateAPIView):
-    pass
 
 class MemberReviewing(generics.ListCreateAPIView):
     pass
@@ -106,9 +102,11 @@ class CommentsViewSet(viewsets.ModelViewSet):
 class EmailCheck(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
+    # def post(self, request):
+    def get(self, request): #Anforderung war get, nicht Post wie Login
         try:
-            email = request.data.get('email')
+            # email = request.data.get('email')
+            email = request.query_params.get('email') #E-Mail aus Query-Parametern, Übergabe als Parameter in der Url
 
             if not email:
                 return Response({'error': 'Email is required.'},status=status.HTTP_400_BAD_REQUEST)
@@ -120,8 +118,8 @@ class EmailCheck(APIView):
                 return Response({'error': 'Invalid email format.'},status=status.HTTP_400_BAD_REQUEST)
 
             try:
-                user = User.objects.get(email__iexact=email) #iexact = case insensitive
-                
+                user = User.objects.get(email__iexact=email) #iexact = case insensitive, exact = case sensitive
+
             except User.DoesNotExist:
                 return Response({'error': 'Email not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -135,3 +133,7 @@ class EmailCheck(APIView):
 
         except Exception:
             return Response({'error': 'Internal server error.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class MemberAssignedTasks(APIView):
+    pass
+
