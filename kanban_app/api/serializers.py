@@ -27,7 +27,7 @@ class BoardsSerializer(serializers.ModelSerializer):
     
 class TasksViewSerializer(serializers.ModelSerializer):
 
-    assignee = UserSerializer(read_only=True) #macht Probleme muss noch gelöst werden, da sonst das Feld nicht funktioniert
+    assignee = UserSerializer(read_only=True)
     reviewer = UserSerializer(read_only=True)
 
     comments_count = serializers.IntegerField(source='comments.count', read_only=True)
@@ -72,5 +72,4 @@ class BoardUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Boards
         fields = ['id', 'title', 'owner_data', 'members_data']
-
 
