@@ -1,12 +1,12 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, mixins
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics
 from kanban_app.models import Boards, Tasks, Comments
-from .serializers import BoardsSerializer, BoardViewSerializer, BoardUpdateSerializer, TasksSerializer, TasksViewSerializer, UserSerializer
+from .serializers import BoardsSerializer, BoardViewSerializer, BoardUpdateSerializer, TasksSerializer, TasksViewSerializer, UserSerializer, CommentsSerializer
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
-from .permissions import IsBoardOwnerOrTaskCreator, IsBoardOwnerOrMember
+from .permissions import IsBoardOwnerOrTaskCreator, IsBoardOwnerOrMember, IsCommentCreator
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -94,11 +94,6 @@ class TasksViewSet(viewsets.ModelViewSet):
 
         return [permission() for permission in permission_classes]
 
-
-class CommentsViewSet(viewsets.ModelViewSet):
-    pass
-
-
 class EmailCheck(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -134,7 +129,7 @@ class EmailCheck(APIView):
         except Exception:
             return Response({'error': 'Internal server error.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class MemberAssignedTasks(generics.ListAPIView):
+class MemberAssignedTasksView(generics.ListAPIView):
     serializer_class = TasksViewSerializer
     permission_classes = [IsAuthenticated]
 
@@ -143,7 +138,7 @@ class MemberAssignedTasks(generics.ListAPIView):
 
         return Tasks.objects.filter(assignee=user)
 
-class MemberReviewingTasks(generics.ListAPIView):
+class MemberReviewingTasksView(generics.ListAPIView):
     serializer_class = TasksViewSerializer
     permission_classes = [IsAuthenticated]
 
@@ -152,3 +147,21 @@ class MemberReviewingTasks(generics.ListAPIView):
 
         return Tasks.objects.filter(reviewer=user)
 
+class CommentsViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet
+):
+    serializer_class = CommentsSerializer
+    permission_classes = [IsCommentCreator] #die Berechtigung muss noch geschrieben werden
+
+    def get_queryset(self):
+        task_id = self.kwargs.get('task_id')
+        return Comments.objects.filter(task_id=task_id)
+
+    def perform_create(self, serializer):
+        task = Tasks.objects.get(pk=self.kwargs['task_id'])
+
+        serializer.save(task=task,author=self.request.user)

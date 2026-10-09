@@ -73,3 +73,14 @@ class BoardUpdateSerializer(serializers.ModelSerializer):
         model = Boards
         fields = ['id', 'title', 'owner_data', 'members_data']
 
+class CommentsSerializer(serializers.ModelSerializer):
+    author = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comments
+        fields = ['id', 'created_at', 'author', 'content']
+        read_only_fields = ['id', 'created_at', 'author']
+
+    def get_author(self, obj):
+        return obj.author.get_full_name() or obj.author.username
+
