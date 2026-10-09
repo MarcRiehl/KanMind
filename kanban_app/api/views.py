@@ -134,6 +134,21 @@ class EmailCheck(APIView):
         except Exception:
             return Response({'error': 'Internal server error.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class MemberAssignedTasks(APIView):
-    pass
+class MemberAssignedTasks(generics.ListAPIView):
+    serializer_class = TasksViewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        return Tasks.objects.filter(assignee=user)
+
+class MemberReviewingTasks(generics.ListAPIView):
+    serializer_class = TasksViewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        return Tasks.objects.filter(reviewer=user)
 
