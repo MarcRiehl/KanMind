@@ -16,6 +16,9 @@ class UserSerializer(serializers.ModelSerializer):
 class BoardsSerializer(serializers.ModelSerializer):
     members = serializers.PrimaryKeyRelatedField(many=True, queryset=User.objects.all(), write_only=True) #bei write_only=True wird das Feld nicht angezeigt
     member_count = serializers.SerializerMethodField() #Gibt Anzahl der Members von einem Board zurück
+    ticket_count = serializers.SerializerMethodField()
+    tasks_to_do_count = serializers.SerializerMethodField()
+    tasks_high_prio_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Boards
@@ -24,6 +27,15 @@ class BoardsSerializer(serializers.ModelSerializer):
 
     def get_member_count(self, obj):
         return obj.members.count()
+
+    def get_ticket_count(self, obj):
+        return obj.tasks.count()
+
+    def get_tasks_to_do_count(self, obj):
+         return obj.tasks.filter(status="to-do").count()
+
+    def get_tasks_high_prio_count(self, obj):
+         return obj.tasks.filter(priority="high").count()
     
 class TasksViewSerializer(serializers.ModelSerializer):
 
