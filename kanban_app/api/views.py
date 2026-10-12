@@ -155,7 +155,7 @@ class CommentsViewSet(
     viewsets.GenericViewSet
 ):
     serializer_class = CommentsSerializer
-    permission_classes = [IsCommentCreator] #die Berechtigung muss noch geschrieben werden
+    permission_classes = [IsAuthenticated, IsCommentCreator] #die Berechtigung muss noch geschrieben werden
 
     def get_queryset(self):
         task_id = self.kwargs.get('task_id')
