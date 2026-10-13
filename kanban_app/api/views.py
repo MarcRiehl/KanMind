@@ -9,6 +9,7 @@ from django.db.models import Q
 from .permissions import IsBoardOwnerOrTaskCreator, IsBoardOwnerOrMember, IsCommentCreator, IsBoardOwner
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied
 from django.core.validators import validate_email
 
 class BoardsViewSet(viewsets.ModelViewSet):
@@ -16,17 +17,6 @@ class BoardsViewSet(viewsets.ModelViewSet):
 
     serializer_class = BoardsSerializer
     permission_classes = [IsAuthenticated]
-
-    def get_serializer_class(self):
-        if self.action == 'retrieve': #id des Boards
-            return BoardViewSerializer
-
-        return BoardsSerializer
-
-    def get_queryset(self):
-        user = self.request.user
-
-        return Boards.objects.filter(Q(owner=user) | Q(members=user)).distinct() #.distinct() Board kommt nur einmal zurück, siehe or Abfrage
 
     def get_permissions(self):
         if self.action == 'partial_update':
@@ -40,6 +30,29 @@ class BoardsViewSet(viewsets.ModelViewSet):
 
         return [permission() for permission in permission_classes]
 
+    def get_serializer_class(self):
+        if self.action == 'retrieve': #id des Boards
+            return BoardViewSerializer
+
+        return BoardsSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+
+        return Boards.objects.filter(Q(owner=user) | Q(members=user)).distinct() #.distinct() Board kommt nur einmal zurück, siehe or Abfrage
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
 
@@ -52,11 +65,35 @@ class BoardsViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    def destroy(self, request, *args, **kwargs):
+        instance = Boards.objects.filter(pk=kwargs.get('pk')).first()
+
+        if instance is None: #Board existiert nicht
+            raise NotFound('Board not found.')
+
+        if instance.owner != request.user: #Nur der Board-Owner darf löschen
+            raise PermissionDenied('The user must be the board owner to delete it.')
+
+        self.perform_destroy(instance)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 class TasksViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete']
 
     serializer_class = TasksSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        if self.action == 'destroy':
+            permission_classes = [IsAuthenticated, IsBoardOwnerOrTaskCreator]
+        else:
+            permission_classes = [IsAuthenticated]
+
+        return [permission() for permission in permission_classes]
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -76,17 +113,6 @@ class TasksViewSet(viewsets.ModelViewSet):
         task = serializer.save(created_by=request.user)
         response_serializer = TasksViewSerializer(task)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
-    def get_permissions(self):
-        """
-        Instantiates and returns the list of permissions that this view requires.
-        """
-        if self.action == 'destroy':
-            permission_classes = [IsAuthenticated, IsBoardOwnerOrTaskCreator]
-        else:
-            permission_classes = [IsAuthenticated]
-
-        return [permission() for permission in permission_classes]
 
 class EmailCheck(APIView):
     permission_classes = [IsAuthenticated]
