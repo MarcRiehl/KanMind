@@ -227,7 +227,7 @@ class CommentsViewSet(
 
     def get_queryset(self):
         task_id = self.kwargs.get('task_id')
-        return Comments.objects.filter(task_id=task_id)
+        return Comments.objects.filter(task_id=task_id).order_by('created_at')#sortiert aufsteigend
 
     def perform_create(self, serializer):
         task = Tasks.objects.get(pk=self.kwargs['task_id'])
