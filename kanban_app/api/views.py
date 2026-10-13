@@ -204,7 +204,7 @@ class MemberAssignedTasksView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
 
-        return Tasks.objects.filter(assignee=user)
+        return Tasks.objects.filter(Q(assignee=user) | Q(reviewer=user)).distinct()
 
 class MemberReviewingTasksView(generics.ListAPIView):
     serializer_class = TasksViewSerializer
