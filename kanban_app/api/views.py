@@ -6,7 +6,7 @@ from kanban_app.models import Boards, Tasks, Comments
 from .serializers import BoardsSerializer, BoardViewSerializer, BoardUpdateSerializer, TasksSerializer, TasksViewSerializer, UserSerializer, CommentsSerializer
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
-from .permissions import IsBoardOwnerOrTaskCreator, IsBoardOwnerOrMember, IsCommentCreator
+from .permissions import IsBoardOwnerOrTaskCreator, IsBoardOwnerOrMember, IsCommentCreator, IsBoardOwner
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -16,7 +16,6 @@ class BoardsViewSet(viewsets.ModelViewSet):
 
     serializer_class = BoardsSerializer
     permission_classes = [IsAuthenticated]
-
 
     def get_serializer_class(self):
         if self.action == 'retrieve': #id des Boards
@@ -30,15 +29,16 @@ class BoardsViewSet(viewsets.ModelViewSet):
         return Boards.objects.filter(Q(owner=user) | Q(members=user)).distinct() #.distinct() Board kommt nur einmal zurück, siehe or Abfrage
 
     def get_permissions(self):
-        permission_classes = [IsAuthenticated]
-
         if self.action == 'partial_update':
-            permission_classes = [IsBoardOwnerOrMember]
+            permission_classes = [IsAuthenticated, IsBoardOwnerOrMember]
+
+        elif self.action == 'destroy':
+            permission_classes = [IsAuthenticated, IsBoardOwner]
+
+        else:
+            permission_classes = [IsAuthenticated]
 
         return [permission() for permission in permission_classes]
-    
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -51,9 +51,6 @@ class BoardsViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
-
-class MemberReviewing(generics.ListCreateAPIView):
-    pass
 
 class TasksViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete']
@@ -72,9 +69,6 @@ class TasksViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         return Tasks.objects.filter(Q(board__owner=user) | Q(board__members=user)).distinct()
-
-    # def perform_create(self, serializer):
-    #     serializer.save(created_by=self.request.user)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -155,7 +149,7 @@ class CommentsViewSet(
     viewsets.GenericViewSet
 ):
     serializer_class = CommentsSerializer
-    permission_classes = [IsAuthenticated, IsCommentCreator] #die Berechtigung muss noch geschrieben werden
+    permission_classes = [IsAuthenticated, IsCommentCreator]
 
     def get_queryset(self):
         task_id = self.kwargs.get('task_id')

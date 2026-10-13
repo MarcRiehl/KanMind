@@ -33,3 +33,7 @@ class IsCommentCreator(BasePermission):
             return True
 
         return False
+
+class IsBoardOwner(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return obj.owner == request.user
