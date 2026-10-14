@@ -1,15 +1,16 @@
-from rest_framework import generics
-from .serializers import RegistrationSerializer #UserProfileSerializer
-from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
-from rest_framework.authtoken.models import Token
-from rest_framework.response import Response
-from rest_framework.authtoken.views import ObtainAuthToken
-from rest_framework import status
+
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from kanban_app.api.utils import get_fullname
+
+from .serializers import RegistrationSerializer
+
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -19,11 +20,11 @@ class LoginView(APIView):
             email = request.data.get('email')
             password = request.data.get('password')
 
-            if not email or not password: # Ungültige Anfragedaten
+            if not email or not password:
                 return Response({'error': 'Invalid request data.'}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
-                user = User.objects.get(email=email) # User über Email suchen
+                user = User.objects.get(email=email)
             except User.DoesNotExist:
                 return Response({'error': 'Invalid request data.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -31,12 +32,12 @@ class LoginView(APIView):
                 request,
                 username=user.username,
                 password=password
-            ) # Passwort prüfen
+            )
 
             if user is None:
                 return Response({'error': 'Invalid request data.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            token, created = Token.objects.get_or_create(user=user) # Login erfolgreich s.u.
+            token, created = Token.objects.get_or_create(user=user)
 
             data = {
                 'token': token.key,
@@ -50,6 +51,7 @@ class LoginView(APIView):
         except Exception:
             return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 class RegistrationView(APIView):
     permission_classes = [AllowAny]
 
@@ -61,7 +63,8 @@ class RegistrationView(APIView):
 
             if serializer.is_valid():
                 saved_account = serializer.save()
-                token, created = Token.objects.get_or_create(user=saved_account) #könnte schon vorhanden sein, braucht created wegen Tupel
+                token, created = Token.objects.get_or_create(
+                    user=saved_account)
                 data = {
                     'token': token.key,
                     'fullname': saved_account.username,
@@ -71,13 +74,6 @@ class RegistrationView(APIView):
                 return Response(data, status=status.HTTP_201_CREATED)
             else:
                 return Response({'error': 'Invalid request data.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         except Exception:
             return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        request.user.auth_token.delete()  # Token löschen
-        return Response({"detail": "Logout erfolgreich. Token wurde gelöscht."}, status=status.HTTP_200_OK)
