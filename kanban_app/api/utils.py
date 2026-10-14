@@ -1,5 +1,15 @@
 
 def get_fullname(user):
+    """
+    Return the user's full name or a fallback based on available user data.
+
+    Args:
+        user (User): The user whose name should be retrieved.
+
+    Returns:
+        str: The user's full name, username, email prefix, or 'Unknown User'
+            if no suitable user information is available.
+    """
     first_name = (user.first_name or '').strip()
     last_name = (user.last_name or '').strip()
 

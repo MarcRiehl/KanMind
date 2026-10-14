@@ -13,9 +13,22 @@ from .serializers import RegistrationSerializer
 
 
 class LoginView(APIView):
+    """API view for authenticating users and generating authentication tokens."""
+
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """
+        Authenticate a user and return an authentication token.
+
+        Args:
+            request (Request): The HTTP request containing the email and password.
+
+        Returns:
+            Response: HTTP 200 with the authentication token and user details
+                on success, HTTP 400 if the login data is invalid, or HTTP 500
+                if an unexpected error occurs.
+        """
         try:
             email = request.data.get('email')
             password = request.data.get('password')
@@ -53,9 +66,22 @@ class LoginView(APIView):
 
 
 class RegistrationView(APIView):
+    """API view for registering users and generating authentication tokens."""
+
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """
+        Register a new user and return an authentication token.
+
+        Args:
+            request (Request): The HTTP request containing the registration data.
+
+        Returns:
+            Response: HTTP 201 with the authentication token and user details
+                if registration succeeds, HTTP 400 if the input data is invalid,
+                or HTTP 500 if an unexpected error occurs.
+        """
         try:
             serializer = RegistrationSerializer(data=request.data)
 

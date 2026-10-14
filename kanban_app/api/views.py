@@ -20,7 +20,11 @@ from .utils import get_fullname
 
 
 class BoardsViewSet(viewsets.ModelViewSet):
-    """ViewSet for managing boards with appropriate permissions and serializers."""
+    """
+    ViewSet for managing boards with action-specific serializers
+    and permission checks.
+    """
+
     http_method_names = ['get', 'post', 'patch', 'delete']
 
     serializer_class = BoardsSerializer
@@ -28,10 +32,10 @@ class BoardsViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """
-        Instantiates and returns the list of permissions that this view requires.
+        Return the permission instances required for the current action.
 
         Returns:
-            List of permission instances required for the current action.
+            list: Permission instances configured for the current action.
         """
         if self.action == 'partial_update':
             permission_classes = [IsAuthenticated, IsBoardOwnerOrMember]
@@ -49,7 +53,8 @@ class BoardsViewSet(viewsets.ModelViewSet):
         Return the serializer class for the current action.
 
         Returns:
-            Serializer class corresponding to the current action.
+            type: BoardViewSerializer for retrieving a board,
+                otherwise BoardsSerializer.
         """
         if self.action == 'retrieve':
             return BoardViewSerializer
@@ -58,10 +63,14 @@ class BoardsViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Return the queryset of boards based on the current user's permissions and action.
+        Return boards based on the current action and user.
+
+        For partial updates and deletions, return all boards.
+        For other actions, return boards owned by or assigned to the user,
+        including calculated task counts.
 
         Returns:
-            QuerySet: Boards accessible to the current user.
+            QuerySet: The boards matching the current action's queryset.
         """
         user = self.request.user
 
@@ -76,10 +85,11 @@ class BoardsViewSet(viewsets.ModelViewSet):
         return boards_with_counts(queryset)
 
     def list(self, request, *args, **kwargs):
-        """List all boards accessible to the current user, including their members and tasks.
+        """
+        Return all accessible boards with their members and tasks.
 
         Returns:
-            Response: Return all accessible boards with their members and tasks.
+            Response: HTTP 200 response containing the serialized boards.
         """
         queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True)
@@ -87,10 +97,11 @@ class BoardsViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):
-        """Retrieve a specific board by its ID, including its members and tasks.
+        """
+        Return a specific board with its members and tasks.
 
         Returns:
-            Response: Return the requested board with its members and tasks.
+            Response: HTTP 200 response containing the serialized board.
         """
         instance = self.get_object()
         serializer = self.get_serializer(instance)
@@ -98,9 +109,11 @@ class BoardsViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def partial_update(self, request, *args, **kwargs):
-        """Partially update a board's details, including its title and members.
+        """
+        Partially update a board's details and membership.
+
         Returns:
-            Response: Return the updated board details.
+            Response: HTTP 200 response containing the updated board details.
         """
         instance = self.get_object()
 
@@ -132,11 +145,11 @@ class BoardsViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        """Create a new board and set the current user as the owner.
-        The created board will also include the owner in its members list.
+        """
+        Create a board and assign the current user as its owner.
 
         Args:
-            serializer (BoardsSerializer): The serializer instance for the board.
+            serializer (BoardsSerializer): The serializer used to create the board.
         """
         board = serializer.save(owner=self.request.user)
 
@@ -144,25 +157,25 @@ class BoardsViewSet(viewsets.ModelViewSet):
             Boards.objects.filter(pk=board.pk)).get()
 
     def destroy(self, request, *args, **kwargs):
-        """Delete a board if the current user is the owner.
+        """
+        Delete a board if the current user is its owner.
 
         Returns:
-            Response: Return a 204 No Content response if the board is deleted.
+            Response: HTTP 204 response if the board is deleted.
 
         Raises:
             NotFound: If the board does not exist.
-            PermissionDenied: If the current user is not the owner of the board.
+            PermissionDenied: If the current user is not the board owner.
         """
         instance = Boards.objects.filter(pk=kwargs.get('pk')).first()
 
-        if instance is None:  # Board existiert nicht
+        if instance is None:
             raise NotFound('Board not found.')
 
-        if instance.owner != request.user:  # Nur der Board-Owner darf löschen
+        if instance.owner != request.user:
             raise PermissionDenied(
                 'The user must be the board owner to delete it.')
 
-        # Damit IsBoardOwner-Permission ausgeführt wird
         self.check_object_permissions(request, instance)
         self.perform_destroy(instance)
 
@@ -170,7 +183,8 @@ class BoardsViewSet(viewsets.ModelViewSet):
 
 
 class TasksViewSet(viewsets.ModelViewSet):
-    """ViewSet for managing tasks with appropriate permissions and serializers."""
+    """ViewSet for managing tasks with action-specific permissions and serializers."""
+
     http_method_names = ['get', 'post', 'patch', 'delete']
 
     serializer_class = TasksSerializer
@@ -178,10 +192,10 @@ class TasksViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """
-        Instantiates and returns the list of permissions that this view requires.
+        Return the permission instances required for the current action.
 
         Returns:
-            List of permission instances required for the current action.
+            list: Permission instances configured for the current action.
         """
         if self.action in ['create', 'partial_update']:
             permission_classes = [IsAuthenticated, IsBoardMember]
@@ -199,7 +213,9 @@ class TasksViewSet(viewsets.ModelViewSet):
         Return the serializer class for the current action.
 
         Returns:
-            Serializer class corresponding to the current action.
+            type: TasksViewSerializer for list and retrieve actions,
+                TaskUpdateSerializer for partial updates, or
+                TasksSerializer for other actions.
         """
         if self.action in ['list', 'retrieve']:
             return TasksViewSerializer
@@ -211,24 +227,30 @@ class TasksViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Return the queryset of tasks based on the current user's permissions and action.
+        Return tasks based on the current action and user's board access.
+
+        Return all tasks for partial updates and deletions.
+        For other actions, return tasks belonging to boards owned by
+        or accessible to the current user.
 
         Returns:
-            QuerySet: Tasks accessible to the current user.
+            QuerySet: Tasks matching the current action's queryset.
         """
         user = self.request.user
 
         if self.action in ['partial_update', 'destroy']:
             return Tasks.objects.all()
 
-        return Tasks.objects.filter(Q(board__owner=user) | Q(board__members=user)).distinct()
+        return Tasks.objects.filter(
+            Q(board__owner=user) | Q(board__members=user)
+        ).distinct()
 
     def retrieve(self, request, *args, **kwargs):
         """
-        Retrieve a specific task by its ID, including its assignee, reviewer, and comment counts.
-        
+        Return a specific task with its assignee, reviewer, and comment count.
+
         Returns:
-            Response: Return the requested task with its details.
+            Response: HTTP 200 response containing the serialized task.
         """
         instance = self.get_object()
         serializer = self.get_serializer(instance)
@@ -237,13 +259,11 @@ class TasksViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         """
-        Partially update a task's details, including its title, description, status, priority, assignee, reviewer, and due date.
+        Partially update a task's fields without changing its board.
 
         Returns:
-            Response: Return the updated task details. 
-
-        Raises:
-            Response: Return a 400 Bad Request response if the board of the task is attempted to be changed.
+            Response: HTTP 200 response containing the updated task,
+                or HTTP 400 if an attempt is made to change its board.
         """
         instance = self.get_object()
 
@@ -259,14 +279,11 @@ class TasksViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
-        """Create a new task within a board, ensuring the current user is a member of the board.
+        """
+        Create a task and assign the current user as its creator.
 
         Returns:
-            Response: Return the created task details.
-
-        Raises:
-            Response: Return a 400 Bad Request response if the current user is not a member of
-            the board specified in the request data.
+            Response: HTTP 201 response containing the created task.
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -276,13 +293,16 @@ class TasksViewSet(viewsets.ModelViewSet):
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
-        """ Delete a task if the current user is either the creator of the task or the owner of the board.
-        
+        """
+        Delete a task if the current user created it or owns its board.
+
         Returns:
-            Response: Return a 204 No Content response if the task is deleted.
+            Response: HTTP 204 response if the task is deleted.
 
         Raises:
             NotFound: If the task does not exist.
+            PermissionDenied: If the current user is neither the task
+                creator nor the board owner.
         """
         instance = Tasks.objects.filter(pk=kwargs.get('pk')).first()
 
@@ -300,15 +320,20 @@ class TasksViewSet(viewsets.ModelViewSet):
 
 
 class EmailCheck(APIView):
-    """API view to check if an email exists in the system and return user details if found."""
+    """
+    API view to validate an email address and retrieve the corresponding user's details.
+    """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         """
-        Check if the provided email exists in the system and return user details if found.
+        Validate an email address and return the corresponding user details.
 
         Returns:
-            Response: Return user details if the email exists, or an error message if not found or invalid.
+            Response: HTTP 200 with user details if found, HTTP 400 if the
+                email is missing or invalid, HTTP 404 if no user is found,
+                or HTTP 500 if an unexpected error occurs.
         """
         try:
             email = request.query_params.get('email')
@@ -342,33 +367,39 @@ class EmailCheck(APIView):
 
 
 class MemberAssignedTasksView(generics.ListAPIView):
-    """View to list tasks assigned to the current user, including their details."""
+    """
+    View to list tasks assigned to or reviewed by the current user.
+    """
+
     serializer_class = TasksViewSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """
-        Return the queryset of tasks assigned to the current user.
+        Return tasks assigned to or reviewed by the current user.
 
         Returns:
-            QuerySet: Tasks assigned to the current user.
+            QuerySet: Tasks where the current user is the assignee or reviewer.
         """
         user = self.request.user
 
-        return Tasks.objects.filter(Q(assignee=user) | Q(reviewer=user)).distinct()
+        return Tasks.objects.filter(
+            Q(assignee=user) | Q(reviewer=user)
+        ).distinct()
 
 
 class MemberReviewingTasksView(generics.ListAPIView):
-    """View to list tasks where the current user is the reviewer, including their details."""
+    """View to list tasks reviewed by the current user."""
+
     serializer_class = TasksViewSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """
-        Return the queryset of tasks where the current user is the reviewer.
+        Return tasks for which the current user is the reviewer.
 
         Returns:
-            QuerySet: Tasks where the current user is the reviewer.
+            QuerySet: Tasks assigned to the current user as reviewer.
         """
         user = self.request.user
 
@@ -382,39 +413,43 @@ class CommentsViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
-    """ViewSet for managing comments on tasks, including listing, creating, retrieving, and deleting comments."""
+    """
+    ViewSet for listing, creating, retrieving, and deleting task comments.
+    """
     serializer_class = CommentsSerializer
     permission_classes = [IsAuthenticated, IsCommentCreator]
 
     def get_queryset(self):
         """
-        Return the queryset of comments for a specific task based on the task_id in the URL.
+        Return comments for a specific task, ordered by creation date.
 
         Returns:
-            QuerySet: Comments associated with the specified task.
+            QuerySet: Comments belonging to the task specified by task_id.
         """
         task_id = self.kwargs.get('task_id')
         return Comments.objects.filter(task_id=task_id).order_by('created_at')
 
     def perform_create(self, serializer):
         """
-        Create a new comment for a specific task, associating it with the current user as the author.
+        Save a comment with the specified task and current user as author.
 
         Args:
-            serializer (CommentsSerializer): The serializer instance for the comment.
+            serializer (CommentsSerializer): The serializer used to create the comment.
         """
         task = Tasks.objects.get(pk=self.kwargs['task_id'])
         serializer.save(task=task, author=self.request.user)
 
 
 def boards_with_counts(queryset=None):
-    """Annotate the provided queryset of boards with counts of members and tasks.
+    """
+    Annotate boards with counts of members, tasks, to-do tasks, and high-priority tasks.
 
     Args:
-        queryset (QuerySet | None): The queryset of boards to annotate. If None, all boards are used.
-        
+        queryset (QuerySet | None): The boards to annotate.
+            If None, all boards are used.
+
     Returns:
-        QuerySet: The annotated queryset of boards with member and task counts.
+        QuerySet: The annotated boards with calculated member and task counts.
     """
     if queryset is None:
         queryset = Boards.objects.all()
