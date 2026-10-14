@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from rest_framework.exceptions import NotFound, PermissionDenied
 from django.core.validators import validate_email
+from .utils import get_fullname
 
 class BoardsViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete']
@@ -59,14 +60,46 @@ class BoardsViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # def partial_update(self, request, *args, **kwargs):
+    #     instance = self.get_object()
+
+    #     serializer = BoardsSerializer(instance, data=request.data, partial=True)
+    #     serializer.is_valid(raise_exception=True)
+    #     self.perform_update(serializer)
+    #     response_serializer = BoardUpdateSerializer(instance)
+    #     return Response(response_serializer.data,status=status.HTTP_200_OK)
+
+
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
 
-        serializer = BoardsSerializer(instance, data=request.data, partial=True)
+        data = request.data.copy()
+
+        if 'members' in data and isinstance(data['members'], list):
+            valid_members = [
+                member_id for member_id in data['members']
+                if member_id is not None
+            ]
+
+            if valid_members:
+                data['members'] = valid_members
+            else:
+                data.pop('members')
+
+        serializer = BoardsSerializer(
+            instance,
+            data=data,
+            partial=True
+        )
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+
         response_serializer = BoardUpdateSerializer(instance)
-        return Response(response_serializer.data,status=status.HTTP_200_OK)
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_200_OK
+        )
+
 
 
     def perform_create(self, serializer):
@@ -194,9 +227,10 @@ class EmailCheck(APIView):
                 return Response({'error': 'Email not found.'}, status=status.HTTP_404_NOT_FOUND)
 
             data = {
+                'id': user.id,
                 'user_id': user.id,
                 'email': user.email,
-                'fullname': user.username
+                'fullname': get_fullname(user)
             }
 
             return Response(data, status=status.HTTP_200_OK)

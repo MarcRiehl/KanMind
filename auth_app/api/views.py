@@ -9,6 +9,7 @@ from rest_framework import status
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
+from kanban_app.api.utils import get_fullname
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -39,7 +40,7 @@ class LoginView(APIView):
 
             data = {
                 'token': token.key,
-                'fullname': user.username,
+                'fullname': get_fullname(user),
                 'email': user.email,
                 'user_id': user.id
             }
