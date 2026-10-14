@@ -143,4 +143,4 @@ class CommentsSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'author']
 
     def get_author(self, obj):
-        return obj.author.get_full_name() or obj.author.username
+        return get_fullname(obj.author)

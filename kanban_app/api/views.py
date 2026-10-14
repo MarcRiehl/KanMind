@@ -43,9 +43,11 @@ class BoardsViewSet(viewsets.ModelViewSet):
         if self.action in ['partial_update', 'destroy']:
             return Boards.objects.all() #alle Boards finden
         
-        queryset = Boards.objects.filter(Q(owner=user) | Q(members=user)).distinct()
+        queryset = Boards.objects.filter(
+        Q(owner=user) |
+        Q(pk__in=Boards.objects.filter(members=user).values('pk'))
+    )
 
-        # return Boards.objects.filter(Q(owner=user) | Q(members=user)).distinct() #.distinct() Board kommt nur einmal zurück, siehe or Abfrage
         return boards_with_counts(queryset)
 
     def list(self, request, *args, **kwargs):
@@ -59,16 +61,6 @@ class BoardsViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-    # def partial_update(self, request, *args, **kwargs):
-    #     instance = self.get_object()
-
-    #     serializer = BoardsSerializer(instance, data=request.data, partial=True)
-    #     serializer.is_valid(raise_exception=True)
-    #     self.perform_update(serializer)
-    #     response_serializer = BoardUpdateSerializer(instance)
-    #     return Response(response_serializer.data,status=status.HTTP_200_OK)
-
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
