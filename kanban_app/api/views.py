@@ -5,7 +5,7 @@ from rest_framework import generics
 from kanban_app.models import Boards, Tasks, Comments
 from .serializers import BoardsSerializer, BoardViewSerializer, BoardUpdateSerializer, TasksSerializer, TasksViewSerializer, TaskUpdateSerializer, CommentsSerializer
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q
+from django.db.models import Q, Count
 from .permissions import IsBoardOwnerOrTaskCreator, IsBoardOwnerOrMember, IsCommentCreator, IsBoardOwner, IsBoardMember
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -41,8 +41,11 @@ class BoardsViewSet(viewsets.ModelViewSet):
 
         if self.action in ['partial_update', 'destroy']:
             return Boards.objects.all() #alle Boards finden
+        
+        queryset = Boards.objects.filter(Q(owner=user) | Q(members=user)).distinct()
 
-        return Boards.objects.filter(Q(owner=user) | Q(members=user)).distinct() #.distinct() Board kommt nur einmal zurück, siehe or Abfrage
+        # return Boards.objects.filter(Q(owner=user) | Q(members=user)).distinct() #.distinct() Board kommt nur einmal zurück, siehe or Abfrage
+        return boards_with_counts(queryset)
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -65,8 +68,12 @@ class BoardsViewSet(viewsets.ModelViewSet):
         response_serializer = BoardUpdateSerializer(instance)
         return Response(response_serializer.data,status=status.HTTP_200_OK)
 
+
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        board = serializer.save(owner=self.request.user)
+
+        serializer.instance = boards_with_counts(Boards.objects.filter(pk=board.pk)).get()
+
 
     def destroy(self, request, *args, **kwargs):
         instance = Boards.objects.filter(pk=kwargs.get('pk')).first()
@@ -233,3 +240,24 @@ class CommentsViewSet(
         task = Tasks.objects.get(pk=self.kwargs['task_id'])
 
         serializer.save(task=task,author=self.request.user)
+
+def boards_with_counts(queryset=None):
+    if queryset is None:
+        queryset = Boards.objects.all()
+
+    return queryset.annotate(
+        annotated_member_count=Count('members', distinct=True),
+        annotated_ticket_count=Count('tasks', distinct=True),
+        annotated_tasks_to_do_count=Count(
+            'tasks',
+            filter=Q(tasks__status='to-do'),
+            distinct=True
+        ),
+        annotated_tasks_high_prio_count=Count(
+            'tasks',
+            filter=Q(tasks__priority='high'),
+            distinct=True
+        )
+    )
+
+

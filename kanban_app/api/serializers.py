@@ -15,27 +15,48 @@ class UserSerializer(serializers.ModelSerializer):
 
 class BoardsSerializer(serializers.ModelSerializer):
     members = serializers.PrimaryKeyRelatedField(many=True, queryset=User.objects.all(), write_only=True) #bei write_only=True wird das Feld nicht angezeigt
-    member_count = serializers.SerializerMethodField() #Gibt Anzahl der Members von einem Board zurück
-    ticket_count = serializers.SerializerMethodField()
-    tasks_to_do_count = serializers.SerializerMethodField()
-    tasks_high_prio_count = serializers.SerializerMethodField()
+    # member_count = serializers.SerializerMethodField() #Gibt Anzahl der Members von einem Board zurück
+    # ticket_count = serializers.SerializerMethodField()
+    # tasks_to_do_count = serializers.SerializerMethodField()
+    # tasks_high_prio_count = serializers.SerializerMethodField()
+
+
+    member_count = serializers.IntegerField(
+        source='annotated_member_count',
+        read_only=True
+    )
+    ticket_count = serializers.IntegerField(
+        source='annotated_ticket_count',
+        read_only=True
+    )
+    tasks_to_do_count = serializers.IntegerField(
+        source='annotated_tasks_to_do_count',
+        read_only=True
+    )
+    tasks_high_prio_count = serializers.IntegerField(
+        source='annotated_tasks_high_prio_count',
+        read_only=True
+    )
+
 
     class Meta:
         model = Boards
         fields = ['id', 'title', 'members', 'member_count', 'ticket_count', 'tasks_to_do_count', 'tasks_high_prio_count', 'owner_id']
-        read_only_fields = ['id', 'ticket_count', 'tasks_to_do_count' , 'tasks_high_prio_count', 'owner_id']
+        # read_only_fields = ['id', 'ticket_count', 'tasks_to_do_count' , 'tasks_high_prio_count', 'owner_id']
+        read_only_fields = ['id', 'owner_id']
 
-    def get_member_count(self, obj):
-        return obj.members.count()
 
-    def get_ticket_count(self, obj):
-        return obj.tasks.count()
+    # def get_member_count(self, obj):
+    #     return obj.members.count()
 
-    def get_tasks_to_do_count(self, obj):
-         return obj.tasks.filter(status="to-do").count()
+    # def get_ticket_count(self, obj):
+    #     return obj.tasks.count()
 
-    def get_tasks_high_prio_count(self, obj):
-         return obj.tasks.filter(priority="high").count()
+    # def get_tasks_to_do_count(self, obj):
+    #      return obj.tasks.filter(status="to-do").count()
+
+    # def get_tasks_high_prio_count(self, obj):
+    #      return obj.tasks.filter(priority="high").count()
     
 class TasksViewSerializer(serializers.ModelSerializer):
 
@@ -142,4 +163,3 @@ class CommentsSerializer(serializers.ModelSerializer):
 
     def get_author(self, obj):
         return obj.author.get_full_name() or obj.author.username
-
