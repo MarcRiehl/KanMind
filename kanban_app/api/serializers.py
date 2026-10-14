@@ -50,13 +50,45 @@ class TasksViewSerializer(serializers.ModelSerializer):
         model = Tasks
         fields = ['id', 'board', 'title', 'description', 'status', 'priority', 'assignee', 'reviewer', 'due_date', 'comments_count']
 
+
+
 class TasksSerializer(serializers.ModelSerializer):
+    assignee_id = serializers.PrimaryKeyRelatedField(
+        source='assignee',
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True
+    )
+
+    reviewer_id = serializers.PrimaryKeyRelatedField(
+        source='reviewer',
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True
+    )
 
     class Meta:
         model = Tasks
-        fields = ['id', 'board', 'title', 'description', 'status', 'priority', 'assignee', 'reviewer', 'due_date', 'created_by']
-
+        fields = [
+            'id', 'board', 'title', 'description',
+            'status', 'priority', 'assignee_id',
+            'reviewer_id', 'due_date', 'created_by'
+        ]
         read_only_fields = ['id', 'created_by']
+
+    def validate(self, attrs):
+        board = attrs.get('board')
+        assignee = attrs.get('assignee')
+        reviewer = attrs.get('reviewer')
+
+        if board is not None:
+            validate_task_assignments(board, assignee, reviewer)
+
+        return attrs
+
+
 
 class TaskUpdateSerializer(serializers.ModelSerializer):
 
@@ -79,32 +111,21 @@ class TaskUpdateSerializer(serializers.ModelSerializer):
         write_only=True
     )
 
-    def validate(self, attrs):
-        instance = self.instance
-        board = instance.board
-
-        assignee = attrs.get('assignee', instance.assignee)#Bestehende Zuweisungen beibehalten für beide Felder, bei patch
-        reviewer = attrs.get('reviewer', instance.reviewer)
-
-        if (assignee is not None and not board.members.filter(pk=assignee.pk).exists()):
-            raise serializers.ValidationError({
-                'assignee_id':
-                    'The assignee must be a member of the board.'
-            })
-
-        if (reviewer is not None and not board.members.filter(pk=reviewer.pk).exists()):
-            raise serializers.ValidationError({
-                'reviewer_id':
-                    'The reviewer must be a member of the board.'
-            })
-
-        return attrs
-
     class Meta:
         model = Tasks
         fields = ['id', 'title', 'description', 'status', 'priority', 'assignee', 'assignee_id', 'reviewer', 'reviewer_id', 'due_date']
         read_only_fields = ['id']
 
+    def validate(self, attrs):
+        instance = self.instance
+        board = instance.board
+    
+        assignee = attrs.get('assignee', instance.assignee)
+        reviewer = attrs.get('reviewer', instance.reviewer)
+    
+        validate_task_assignments(board, assignee, reviewer)
+    
+        return attrs
 
 class BoardTaskSerializer(serializers.ModelSerializer):
 
@@ -144,3 +165,22 @@ class CommentsSerializer(serializers.ModelSerializer):
 
     def get_author(self, obj):
         return get_fullname(obj.author)
+
+def validate_task_assignments(board, assignee, reviewer):
+    if assignee is not None:
+        if not (
+            board.owner_id == assignee.pk
+            or board.members.filter(pk=assignee.pk).exists()
+        ):
+            raise serializers.ValidationError({
+                'assignee_id': 'The assignee must be a member of the board.'
+            })
+
+    if reviewer is not None:
+        if not (
+            board.owner_id == reviewer.pk
+            or board.members.filter(pk=reviewer.pk).exists()
+        ):
+            raise serializers.ValidationError({
+                'reviewer_id': 'The reviewer must be a member of the board.'
+            })

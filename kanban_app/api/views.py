@@ -92,8 +92,6 @@ class BoardsViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
 
-
-
     def perform_create(self, serializer):
         board = serializer.save(owner=self.request.user)
 

@@ -62,17 +62,23 @@ class IsBoardMember(BasePermission):
         if view.action == 'create':
             board_id = request.data.get('board')
 
-            if not board_id: #Fehlende oder ungültige Board-ID
-                return True
+            if not board_id:
+                return False
 
             board = Boards.objects.filter(pk=board_id).first()
 
-            if board is None: #kein Board vorhanden
-                return True
+            if board is None:
+                return False
 
-            return board.members.filter(pk=request.user.pk).exists()
+            return (
+                board.owner_id == request.user.pk
+                or board.members.filter(pk=request.user.pk).exists()
+            )
 
         return True
 
     def has_object_permission(self, request, view, obj):
-        return obj.board.members.filter(pk=request.user.pk).exists()
+        return (
+            obj.board.owner_id == request.user.pk
+            or obj.board.members.filter(pk=request.user.pk).exists()
+        )
