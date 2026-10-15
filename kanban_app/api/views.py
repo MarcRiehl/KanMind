@@ -306,7 +306,7 @@ class TasksViewSet(viewsets.ModelViewSet):
         """
         instance = Tasks.objects.filter(pk=kwargs.get('pk')).first()
 
-        if instance is None:  # Task existiert nicht
+        if instance is None:
             raise NotFound('Task not found.')
 
         if (instance.created_by != request.user and instance.board.owner != request.user):

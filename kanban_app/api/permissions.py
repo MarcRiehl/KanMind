@@ -1,5 +1,7 @@
-from rest_framework.permissions import BasePermission, SAFE_METHODS
-from ..models import Tasks, Boards
+from rest_framework.exceptions import NotFound
+from rest_framework.permissions import SAFE_METHODS, BasePermission
+
+from ..models import Boards, Tasks
 
 
 class IsBoardOwnerOrTaskCreator(BasePermission):
@@ -187,7 +189,7 @@ class IsBoardMember(BasePermission):
             board = Boards.objects.filter(pk=board_id).first()
 
             if board is None:
-                return False
+                raise NotFound("Board not found.")
 
             return (
                 board.owner_id == request.user.pk
